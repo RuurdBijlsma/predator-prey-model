@@ -11,13 +11,18 @@ breed [predators predator]
 
 fish-own [
   flockmates         ;; agentset of nearby fish
+  nearest-neighbor   ;; closest one of our flockmates
   nearest-predator   ;; closest predator in range
   delta-speed        ;; random speed dev. per update
   delta-noise        ;; random rotation per update
+  vision             ;; current vision range
 ]
 
 predators-own [
   delta-noise        ;; random rotation per update
+  locked-on          ;; locked on prey if any
+  nearest-prey
+  handle-time        ;; count down handle time
 ]
 
 globals [
@@ -26,6 +31,8 @@ globals [
   ordetect
   prey-update
   pred-update
+  prevprey
+  lock-ons
 ]
 
 to setup
@@ -38,7 +45,10 @@ to setup
     create-predators predator-population [
     set color green
     set size 2.0
-    setxy random-xcor random-ycor]
+    setxy random-xcor random-ycor
+    set nearest-prey nobody
+    set locked-on nobody
+  ]
   set ordetect 8
   reset-ticks
 end
@@ -70,7 +80,7 @@ to go
       let dt 1 / predator-update-freq
       ;set pred-update pred-update + 1
       ask predators [
-      ;  select-prey dt
+        select-prey dt
         hunt dt
       ]
     ]
@@ -111,7 +121,49 @@ end
 
 ;;; PREDATOR PROCEDURES
 
-to select-prey [dt] ;; Currently predator has no means to select prey
+to select-prey [dt]
+  set handle-time handle-time - dt
+
+  if handle-time <= 0
+  [
+    set nearest-prey min-one-of fish in-cone predator-vision predator-FOV [distance myself]
+    ifelse locked-on != nobody and
+         ((nearest-prey = nobody or distance nearest-prey > lock-on-distance) or
+         (nearest-prey != locked-on))
+      [
+        ;; lost it
+        release-locked-on
+        set handle-time switch-penalty
+        set losts losts + 1
+        set color blue
+        ;stop
+    ]
+    [
+      set color orange  ;; hunting w/o lock-on
+      if nearest-prey != nobody
+      [
+        if distance nearest-prey < lock-on-distance
+        [
+          set locked-on nearest-prey
+          ask locked-on [set color magenta]
+          if nearest-prey != prevprey
+          [
+            set lock-ons lock-ons + 1
+          ]
+          set color red
+          set prevprey nearest-prey
+          set hunting? true
+        ]
+      ]
+    ]
+  ]
+end
+
+to release-locked-on
+  if locked-on != nobody [ask locked-on [set color yellow - 2 + random 7]]
+  set locked-on nobody
+  set nearest-prey nobody
+  set prevprey nobody
 end
 
 to hunt [dt] ;; predator procedure, only catch has been incorporated: put proportional navigation and direct pursuit strategies here
@@ -580,6 +632,36 @@ Prey
 0.0
 1
 
+SLIDER
+804
+549
+976
+582
+lock-on-distance
+lock-on-distance
+0
+5
+5.0
+0.1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+822
+504
+994
+537
+switch-penalty
+switch-penalty
+0
+50
+50.0
+1
+1
+ticks
+HORIZONTAL
+
 @#$#@#$#@
 ## WHAT IS IT?
 
@@ -967,7 +1049,7 @@ false
 Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 @#$#@#$#@
-NetLogo 6.0.3
+NetLogo 6.1.1
 @#$#@#$#@
 set population 200
 setup
