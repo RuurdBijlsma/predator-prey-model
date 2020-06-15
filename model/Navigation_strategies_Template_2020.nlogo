@@ -4,9 +4,11 @@
 ;; Escape strategies
 ;;
 ;; Hanno 2016
+extensions [matrix]
 
 breed [fish onefish]
 breed [predators predator]
+breed [stampers stamper]
 
 
 fish-own [
@@ -16,6 +18,8 @@ fish-own [
   delta-speed        ;; random speed dev. per update
   delta-noise        ;; random rotation per update
   vision             ;; current vision range
+  nextx
+  nexty
 ]
 
 predators-own [
@@ -23,11 +27,14 @@ predators-own [
   locked-on          ;; locked on prey if any
   nearest-prey
   handle-time        ;; count down handle time
+  nextx
+  nexty
 ]
 
 globals [
   catches
   losts
+  counter
   ordetect
   prey-update
   pred-update
@@ -41,14 +48,27 @@ to setup
     set color yellow - 2 + random 7  ;; random shades look nice ?
     set size 1.5
     setxy random-xcor random-ycor
+    set vision max-vision
+    set nextx 0
+    set nexty 0
   ]
-    create-predators predator-population [
+  create-stampers 1[
+    set shape "circle"
+    setxy random-xcor random-ycor
+    set color red
+    set size 1
+  ]
+  create-predators predator-population [
     set color green
     set size 2.0
     setxy random-xcor random-ycor
     set nearest-prey nobody
     set locked-on nobody
+    set nextx 0
+    set nexty 0
   ]
+  set counter 0
+  set lock-ons 0
   set ordetect 8
   reset-ticks
 end
@@ -56,10 +76,10 @@ end
 to go
   ask fish [
     set delta-speed 0.1 * (random-normal speed (speed * 0.01 * speed-stddev))
-    ;set delta-noise 0.1 * (random-normal 0 noise-stddev)
+    set delta-noise 0.1 * (random-normal 0 noise-stddev)
   ]
   ask predators [
-    ;set delta-noise 0.1 * (random-normal 0 predator-noise-stddev)
+    set delta-noise 0.1 * (random-normal 0 predator-noise-stddev)
   ]
 
   ;let escape-task select-escape-task
@@ -73,6 +93,10 @@ to go
         find-nearest-predator
         if nearest-predator != nobody [
           ( select-escape-task dt )
+          set weight flocking-weight
+        ]
+        if flocking[
+          go-flock dt * weight
         ]
       ]
     ]
@@ -91,22 +115,49 @@ to go
     ask predators [
       rt delta-noise
       fd 0.1 * predator-speed
+      ask fish [set color yellow]
+      if nearest-prey != nobody[
+        ask nearest-prey[
+          set color red
+          let real-heading subtract-headings 90 heading
+          let velx (cos real-heading) * (delta-speed)
+          let vely (sin real-heading) * (delta-speed)
+          set nextx xcor + velx
+          set nexty ycor + vely
+          let nx nextx
+          let ny nexty
+          ask stampers [setxy nx ny]
+      ]]
     ]
     set t t + 1
   ]
-  ;if not hunting?
-  ;[set counter counter + 1]
-  ;if counter > 300
-  ;[set hunting? true
-  ; set detection-range ordetect]
+  if not hunting?
+  [set counter counter + 1]
+  if counter > hunt-start-tick
+  [set hunting? true
+   set detection-range ordetect]
   tick
 end
 
 
 to select-escape-task [dt]
-  run   [ [] -> escape-default dt ]  ;report task escape-default
+  if escape-strategy = "default" [ run   [ [] -> escape-default dt ] ] ;report task escape-default
+  if escape-strategy = "turn 90 deg" [ run   [ [] -> escape-90 dt ] ]
+  if escape-strategy = "sacrifice" [ run   [ [] -> escape-sacrifice dt ] ]
+  if escape-strategy = "sprint" [ run   [ [] ->  escape-sprint dt ] ]
 end
 
+
+to go-flock [dt] ;; fish procedure
+  find-flockmates
+  if any? flockmates [
+    find-nearest-neighbor
+    ifelse distance nearest-neighbor < minimum-separation
+      [separate dt]
+      [cohere dt]
+    align dt
+  ]
+end
 
 to find-nearest-predator ;; fish procedure
   set nearest-predator nobody
@@ -115,6 +166,60 @@ to find-nearest-predator ;; fish procedure
   [
     set nearest-predator min-one-of predators in-cone detection-range FOV [distance myself]
   ]
+end
+
+to find-flockmates  ;; fish procedure
+  set flockmates other fish in-cone vision FOV
+  ;; adjust vision for next update
+  let n count flockmates
+  ifelse n > topo
+    [set vision 0.95 * vision]
+    [set vision 1.05 * vision]
+  set vision min (list vision max-vision)
+end
+
+to find-nearest-neighbor ;; fish procedure
+  set nearest-neighbor min-one-of flockmates [distance myself]
+end
+
+;;; SEPARATE
+
+to separate [dt] ;; fish procedure
+  turn-away ([heading] of nearest-neighbor) max-separate-turn * dt
+end
+
+;;; ALIGN
+
+to align [dt] ;; fish procedure
+  turn-towards average-flockmate-heading max-align-turn * dt
+end
+
+to-report average-flockmate-heading  ;; fish procedure
+  ;; We can't just average the heading variables here.
+  ;; For example, the average of 1 and 359 should be 0,
+  ;; not 180.  So we have to use trigonometry.
+  let x-component sum [dx] of flockmates
+  let y-component sum [dy] of flockmates
+  ifelse x-component = 0 and y-component = 0
+    [ report heading ]
+    [ report atan x-component y-component ]
+end
+
+;;; COHERE
+
+to cohere [dt]  ;; fish procedure
+  turn-towards average-heading-towards-flockmates max-cohere-turn * dt
+end
+
+to-report average-heading-towards-flockmates  ;; fish procedure
+  ;; "towards myself" gives us the heading from the other turtle
+  ;; to me, but we want the heading from me to the other turtle,
+  ;; so we add 180
+  let x-component mean [sin (towards myself + 180)] of flockmates
+  let y-component mean [cos (towards myself + 180)] of flockmates
+  ifelse x-component = 0 and y-component = 0
+    [ report heading ]
+    [ report atan x-component y-component ]
 end
 
 
@@ -167,21 +272,88 @@ to release-locked-on
 end
 
 to hunt [dt] ;; predator procedure, only catch has been incorporated: put proportional navigation and direct pursuit strategies here
+  if nearest-prey != nobody
+  [
+    if predator-strategy = "direct"
+    [
+      turn-towards towards nearest-prey max-hunt-turn * dt
+    ]
+    if predator-strategy = "test"
+    [
+      let nx [nextx] of nearest-prey
+      let ny [nexty] of nearest-prey
+      turn-towards (towardsxy nx ny) max-hunt-turn * dt
+    ]
+    if predator-strategy = "proportional"
+    [
+      let ph subtract-headings 90 [heading] of nearest-prey
+      let px (cos ph) * (speed)
+      let py (sin ph) * (speed)
+      let real-heading subtract-headings 90 heading
+      let mx (cos real-heading) * (predator-speed)
+      let my (sin real-heading) * (predator-speed)
+      let dvx mx - px
+      let dvy my - py
+      ; Vr = [dvx, dvy]
 
- if min-one-of fish in-radius catch-distance [distance myself] != nobody
+      let ppx [xcor] of nearest-prey
+      let ppy [ycor] of nearest-prey
+      let dpx xcor - ppx
+      let dpy ycor - ppy
+      ; r = [dpx, dpy]
+
+      let norm-v sqrt (dvx ^ 2 + dvy ^ 2)
+      let norm-r sqrt (dpx ^ 2 + dpy ^ 2)
+
+
+      let psi (atan dpy dpx) - (atan dvy dvx)
+
+      let theta (norm-v * sin psi) / norm-r
+      ; Why must N be so large
+      let N 1000
+
+      let d-gamma theta * N
+
+      ;print d-gamma
+      turn-towards d-gamma max-hunt-turn * dt
+    ]
+    ; If locked on fish is in predator vision cone
+    if min-one-of fish in-radius catch-distance [distance myself] != nobody
    [
       ask min-one-of fish in-radius catch-distance [distance myself]
         [setxy random-xcor random-ycor]
             set catches catches + 1
       rt random-normal 0 45
     ]
+  ]
 
 end
 
 
 ;;; ESCAPE STRATEGIES
 
-to escape-default [dt] ;; Currently prey has no escape strategies
+to escape-default [dt]
+  ;if color = magenta
+  ;  [type who type "=I try " type heading]
+  turn-away (towards nearest-predator) max-escape-turn * dt * (1 - flocking-weight)
+  ;if color = magenta
+  ;  [type " -> " print heading]
+end
+
+to escape-90 [dt]
+   let dh subtract-headings heading [heading] of nearest-predator
+   ifelse dh > 0
+     [ turn-towards ([heading] of nearest-predator + 90) max-escape-turn * dt  * (1 - flocking-weight)]
+     [ turn-towards ([heading] of nearest-predator - 90) max-escape-turn * dt  * (1 - flocking-weight)]
+end
+
+to escape-sacrifice [dt]
+  if self != [locked-on] of nearest-predator [escape-default dt]
+end
+
+to escape-sprint [dt]
+  escape-default dt
+  set delta-speed delta-speed + dt * speed  * (1 - flocking-weight)
 end
 
 
@@ -210,10 +382,10 @@ end
 ; See Info tab for full copyright and license.
 @#$#@#$#@
 GRAPHICS-WINDOW
-250
-0
-770
-521
+297
+10
+817
+531
 -1
 -1
 7.2113
@@ -237,10 +409,10 @@ ticks
 30.0
 
 BUTTON
-426
-544
-503
-577
+473
+554
+550
+587
 NIL
 setup
 NIL
@@ -254,10 +426,10 @@ NIL
 1
 
 BUTTON
-513
-543
-594
-576
+560
+553
+641
+586
 NIL
 go
 T
@@ -277,10 +449,10 @@ SLIDER
 74
 population
 population
-1.0
-1000.0
-1.0
-1.0
+1
+300
+231.0
+5
 1
 NIL
 HORIZONTAL
@@ -346,10 +518,10 @@ patches/tick
 HORIZONTAL
 
 SLIDER
-788
-46
-987
-79
+835
+56
+1034
+89
 predator-population
 predator-population
 0
@@ -361,25 +533,25 @@ NIL
 HORIZONTAL
 
 SLIDER
-790
-175
-988
-208
+837
+185
+1035
+218
 predator-vision
 predator-vision
 0
 100
-16.0
+67.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-790
-252
-988
-285
+837
+262
+1035
+295
 predator-speed
 predator-speed
 0
@@ -391,10 +563,10 @@ patches/tick
 HORIZONTAL
 
 SLIDER
-789
-362
-990
-395
+836
+372
+1037
+405
 predator-noise-stddev
 predator-noise-stddev
 0
@@ -406,25 +578,25 @@ degrees
 HORIZONTAL
 
 SLIDER
-789
-215
-988
-248
+836
+225
+1035
+258
 predator-FOV
 predator-FOV
 0
 360
-270.0
+158.0
 1
 1
 degrees
 HORIZONTAL
 
 SWITCH
-789
-87
-892
-120
+836
+97
+939
+130
 hunting?
 hunting?
 0
@@ -432,30 +604,30 @@ hunting?
 -1000
 
 CHOOSER
-17
-234
-240
-279
+14
+239
+237
+284
 update-freq
 update-freq
 1 2 10
 1
 
 CHOOSER
-789
-400
-992
-445
+836
+410
+1039
+455
 predator-update-freq
 predator-update-freq
 1 2 10
 1
 
 SLIDER
-789
-325
-989
-358
+836
+335
+1036
+368
 catch-distance
 catch-distance
 0
@@ -467,10 +639,10 @@ NIL
 HORIZONTAL
 
 BUTTON
-919
-87
-985
-120
+966
+97
+1032
+130
 reset
 set catches 0\nset losts 0
 NIL
@@ -484,10 +656,10 @@ NIL
 1
 
 MONITOR
-789
-123
-855
-168
+836
+133
+902
+178
 NIL
 catches
 17
@@ -495,10 +667,10 @@ catches
 11
 
 MONITOR
-858
-122
-922
-167
+905
+132
+969
+177
 NIL
 losts
 17
@@ -536,10 +708,10 @@ patches
 HORIZONTAL
 
 BUTTON
-348
-588
-411
-621
+395
+598
+458
+631
 step
 go
 NIL
@@ -553,10 +725,10 @@ NIL
 1
 
 BUTTON
-422
-589
-541
-622
+469
+599
+588
+632
 NIL
 repeat 10 [go]
 NIL
@@ -570,10 +742,10 @@ NIL
 1
 
 BUTTON
-554
-589
-680
-622
+601
+599
+727
+632
 NIL
 repeat 4000 [go]
 NIL
@@ -587,10 +759,10 @@ NIL
 1
 
 SWITCH
-789
-448
-924
-481
+836
+458
+971
+491
 always_react?
 always_react?
 1
@@ -598,10 +770,10 @@ always_react?
 -1000
 
 SLIDER
-789
-289
-989
-322
+836
+299
+1036
+332
 max-hunt-turn
 max-hunt-turn
 0
@@ -633,10 +805,10 @@ Prey
 1
 
 SLIDER
-804
-549
-976
-582
+835
+527
+1007
+560
 lock-on-distance
 lock-on-distance
 0
@@ -648,19 +820,206 @@ NIL
 HORIZONTAL
 
 SLIDER
-822
-504
-994
-537
+835
+493
+1007
+526
 switch-penalty
 switch-penalty
 0
 50
+5.0
+1
+1
+ticks
+HORIZONTAL
+
+SLIDER
+1045
+270
+1217
+303
+hunt-start-tick
+hunt-start-tick
+0
+500
+13.0
+1
+1
+tick
+HORIZONTAL
+
+SLIDER
+835
+562
+1012
+595
+catch-handle-time
+catch-handle-time
+0
+1000
 50.0
 1
 1
 ticks
 HORIZONTAL
+
+CHOOSER
+1045
+225
+1183
+270
+predator-strategy
+predator-strategy
+"direct" "proportional" "test"
+1
+
+SWITCH
+1045
+187
+1148
+220
+kill-prey
+kill-prey
+0
+1
+-1000
+
+SLIDER
+14
+471
+186
+504
+flocking-weight
+flocking-weight
+0
+1
+0.9
+0.1
+1
+NIL
+HORIZONTAL
+
+CHOOSER
+15
+353
+153
+398
+escape-strategy
+escape-strategy
+"default" "turn 90 deg" "sacrifice" "sprint"
+0
+
+SLIDER
+15
+573
+221
+606
+minimum-separation
+minimum-separation
+0
+5
+1.0
+0.25
+1
+patches
+HORIZONTAL
+
+SLIDER
+14
+505
+186
+538
+topo
+topo
+1
+100
+10.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+14
+539
+186
+572
+max-vision
+max-vision
+0
+20
+10.0
+0.5
+1
+patches
+HORIZONTAL
+
+SLIDER
+15
+639
+218
+672
+max-separate-turn
+max-separate-turn
+0
+20
+2.0
+0.25
+1
+degrees
+HORIZONTAL
+
+SLIDER
+15
+607
+194
+640
+max-align-turn
+max-align-turn
+0
+20
+5.0
+0.25
+1
+degrees
+HORIZONTAL
+
+SLIDER
+14
+436
+206
+469
+max-cohere-turn
+max-cohere-turn
+0
+20
+4.0
+0.25
+1
+degrees
+HORIZONTAL
+
+TEXTBOX
+18
+408
+168
+427
+Flocking\n
+15
+0.0
+1
+
+SWITCH
+76
+401
+179
+434
+flocking
+flocking
+0
+1
+-1000
 
 @#$#@#$#@
 ## WHAT IS IT?
