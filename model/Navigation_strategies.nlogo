@@ -4,7 +4,7 @@
 ;; Escape strategies
 ;;
 ;; Hanno 2016
-extensions [matrix]
+extensions [vid]
 
 breed [fish onefish]
 breed [predators predator]
@@ -95,10 +95,12 @@ to go
         let weight 1
         find-nearest-predator
         if nearest-predator != nobody [
-          ( select-escape-task dt )
+          if not control[
+            ( select-escape-task dt )
+          ]
           set weight flocking-weight
         ]
-        if flocking[
+        if flocking and not control[
           go-flock dt * weight
         ]
       ]
@@ -149,6 +151,7 @@ to select-escape-task [dt]
   if escape-strategy = "turn 90 deg" [ run   [ [] -> escape-90 dt ] ]
   if escape-strategy = "sacrifice" [ run   [ [] -> escape-sacrifice dt ] ]
   if escape-strategy = "sprint" [ run   [ [] ->  escape-sprint dt ] ]
+  if escape-strategy = "none" [ run   [ [] ->  escape-none dt ] ]
 end
 
 
@@ -309,15 +312,17 @@ to hunt [dt] ;; predator procedure, only catch has been incorporated: put propor
       let norm-v sqrt (dvx ^ 2 + dvy ^ 2)
       let norm-r sqrt (dpx ^ 2 + dpy ^ 2)
 
+      let dot-vr dpx * dvx + dpy * dvy
 
-      let psi (atan dpy dpx) - (atan dvy dvx)
+      let cos-psi dot-vr / (norm-v * norm-r)
+
+      ;let psi subtract-headings (atan dpy dpx) (atan dvy dvx)
+      let psi acos cos-psi
 
       let theta (norm-v * sin psi) / norm-r
-      ; Why must N be so large
 
       let d-gamma theta * proportional-turn-modifier
 
-      ;print d-gamma
       turn-towards d-gamma max-hunt-turn * dt
     ]
     ; If locked on fish is in predator vision cone
@@ -359,6 +364,10 @@ to escape-sprint [dt]
   set delta-speed delta-speed + dt * speed  * (1 - flocking-weight)
 end
 
+to escape-none [dt]
+
+end
+
 
 ;;; HELPER PROCEDURES
 
@@ -378,6 +387,23 @@ to turn-at-most [turn max-turn]  ;; turtle procedure
         [ rt max-turn ]
         [ lt max-turn ] ]
     [ rt turn ]
+end
+
+to make-movie
+
+ setup
+ let stopcondition 1000
+ (vid:start-recorder 1000 1000)
+ vid:record-interface ;; show the initial state
+ while [ticks < stopcondition]
+ [
+ repeat 1
+ [ go
+   vid:record-view ]
+ ]
+ repeat 25 [ vid:record-view]
+ vid:save-recording "out.mp4"
+
 end
 
 
@@ -412,9 +438,9 @@ ticks
 30.0
 
 BUTTON
-473
+526
 554
-550
+603
 587
 NIL
 setup
@@ -429,9 +455,9 @@ NIL
 1
 
 BUTTON
-560
+613
 553
-641
+694
 586
 NIL
 go
@@ -454,8 +480,8 @@ population
 population
 1
 300
-200.0
-5
+20.0
+1
 1
 NIL
 HORIZONTAL
@@ -544,7 +570,7 @@ predator-vision
 predator-vision
 0
 100
-60.0
+40.0
 1
 1
 NIL
@@ -559,8 +585,8 @@ predator-speed
 predator-speed
 0
 5
-0.6
-0.1
+0.5
+0.05
 1
 patches/tick
 HORIZONTAL
@@ -589,7 +615,7 @@ predator-FOV
 predator-FOV
 0
 360
-200.0
+160.0
 1
 1
 degrees
@@ -634,8 +660,8 @@ SLIDER
 catch-distance
 catch-distance
 0
-1
-0.5
+2
+1.0
 0.1
 1
 NIL
@@ -781,17 +807,17 @@ max-hunt-turn
 max-hunt-turn
 0
 20
-10.0
+7.0
 0.25
 1
 degrees
 HORIZONTAL
 
 TEXTBOX
-791
-16
-941
-35
+838
+18
+988
+37
 Predator
 15
 0.0
@@ -815,8 +841,8 @@ SLIDER
 lock-on-distance
 lock-on-distance
 0
-5
-5.0
+10
+6.0
 0.1
 1
 NIL
@@ -831,7 +857,7 @@ switch-penalty
 switch-penalty
 0
 50
-25.0
+20.0
 1
 1
 ticks
@@ -846,7 +872,7 @@ hunt-start-tick
 hunt-start-tick
 0
 500
-150.0
+100.0
 1
 1
 tick
@@ -875,7 +901,7 @@ CHOOSER
 predator-strategy
 predator-strategy
 "direct" "proportional" "world-predict"
-2
+0
 
 SWITCH
 1045
@@ -910,8 +936,8 @@ CHOOSER
 398
 escape-strategy
 escape-strategy
-"default" "turn 90 deg" "sacrifice" "sprint"
-3
+"default" "turn 90 deg" "sacrifice" "sprint" "none"
+0
 
 SLIDER
 15
@@ -1032,12 +1058,40 @@ SLIDER
 proportional-turn-modifier
 proportional-turn-modifier
 1
-2000
+3000
 2000.0
 1
 1
 NIL
 HORIZONTAL
+
+SWITCH
+222
+641
+325
+674
+control
+control
+1
+1
+-1000
+
+BUTTON
+422
+553
+518
+586
+Make Movie
+make-movie
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -1856,6 +1910,367 @@ repeat 200 [ go ]
       <value value="&quot;direct&quot;"/>
       <value value="&quot;proportional&quot;"/>
       <value value="&quot;world-predict&quot;"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="project-test-2" repetitions="15" runMetricsEveryStep="false">
+    <setup>setup</setup>
+    <go>go</go>
+    <timeLimit steps="2000"/>
+    <metric>catches</metric>
+    <metric>losts</metric>
+    <enumeratedValueSet variable="catch-distance">
+      <value value="0.5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="predator-vision">
+      <value value="60"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="noise-stddev">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="flocking">
+      <value value="true"/>
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-separate-turn">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="lock-on-distance">
+      <value value="5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="predator-population">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="predator-FOV">
+      <value value="200"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="population">
+      <value value="20"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="catch-handle-time">
+      <value value="50"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="update-freq">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="topo">
+      <value value="10"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-hunt-turn">
+      <value value="10"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="predator-noise-stddev">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="flocking-weight">
+      <value value="0.9"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="speed-stddev">
+      <value value="10"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-vision">
+      <value value="10"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-align-turn">
+      <value value="5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="predator-update-freq">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="hunting?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-escape-turn">
+      <value value="180"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="always_react?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-cohere-turn">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="switch-penalty">
+      <value value="25"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="detection-range">
+      <value value="8"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="predator-speed">
+      <value value="0.6"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="minimum-separation">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="speed">
+      <value value="0.4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="FOV">
+      <value value="360"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="kill-prey">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="hunt-start-tick">
+      <value value="100"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="proportional-turn-modifier">
+      <value value="250"/>
+      <value value="500"/>
+      <value value="1000"/>
+      <value value="1500"/>
+      <value value="2000"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="escape-strategy">
+      <value value="&quot;default&quot;"/>
+      <value value="&quot;turn 90 deg&quot;"/>
+      <value value="&quot;sacrifice&quot;"/>
+      <value value="&quot;sprint&quot;"/>
+      <value value="&quot;none&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="predator-strategy">
+      <value value="&quot;direct&quot;"/>
+      <value value="&quot;proportional&quot;"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="project-test-3" repetitions="15" runMetricsEveryStep="false">
+    <setup>setup</setup>
+    <go>go</go>
+    <timeLimit steps="2500"/>
+    <metric>catches</metric>
+    <metric>losts</metric>
+    <enumeratedValueSet variable="catch-distance">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="predator-vision">
+      <value value="60"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="noise-stddev">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="flocking">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-separate-turn">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="lock-on-distance">
+      <value value="6"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="predator-population">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="predator-FOV">
+      <value value="120"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="population">
+      <value value="20"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="catch-handle-time">
+      <value value="50"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="update-freq">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="topo">
+      <value value="10"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-hunt-turn">
+      <value value="10"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="predator-noise-stddev">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="flocking-weight">
+      <value value="0.9"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="speed-stddev">
+      <value value="10"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-vision">
+      <value value="10"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-align-turn">
+      <value value="5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="predator-update-freq">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="hunting?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-escape-turn">
+      <value value="180"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="always_react?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-cohere-turn">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="switch-penalty">
+      <value value="20"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="detection-range">
+      <value value="8"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="predator-speed">
+      <value value="0.6"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="minimum-separation">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="speed">
+      <value value="0.4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="FOV">
+      <value value="360"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="kill-prey">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="hunt-start-tick">
+      <value value="100"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="control">
+      <value value="true"/>
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="proportional-turn-modifier">
+      <value value="250"/>
+      <value value="500"/>
+      <value value="1000"/>
+      <value value="1500"/>
+      <value value="2000"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="escape-strategy">
+      <value value="&quot;default&quot;"/>
+      <value value="&quot;turn 90 deg&quot;"/>
+      <value value="&quot;sacrifice&quot;"/>
+      <value value="&quot;sprint&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="predator-strategy">
+      <value value="&quot;direct&quot;"/>
+      <value value="&quot;proportional&quot;"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="project-test-4" repetitions="15" runMetricsEveryStep="false">
+    <setup>setup</setup>
+    <go>go</go>
+    <timeLimit steps="2500"/>
+    <metric>catches</metric>
+    <metric>losts</metric>
+    <enumeratedValueSet variable="catch-distance">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="predator-vision">
+      <value value="60"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="noise-stddev">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="flocking">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-separate-turn">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="lock-on-distance">
+      <value value="6"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="predator-population">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="predator-FOV">
+      <value value="120"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="population">
+      <value value="20"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="catch-handle-time">
+      <value value="50"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="update-freq">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="topo">
+      <value value="10"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-hunt-turn">
+      <value value="10"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="predator-noise-stddev">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="flocking-weight">
+      <value value="0.9"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="speed-stddev">
+      <value value="10"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-vision">
+      <value value="10"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-align-turn">
+      <value value="5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="predator-update-freq">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="hunting?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-escape-turn">
+      <value value="180"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="always_react?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-cohere-turn">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="switch-penalty">
+      <value value="20"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="detection-range">
+      <value value="8"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="predator-speed">
+      <value value="0.45"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="minimum-separation">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="speed">
+      <value value="0.4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="FOV">
+      <value value="360"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="kill-prey">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="hunt-start-tick">
+      <value value="100"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="control">
+      <value value="true"/>
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="proportional-turn-modifier">
+      <value value="250"/>
+      <value value="500"/>
+      <value value="1000"/>
+      <value value="1500"/>
+      <value value="2000"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="escape-strategy">
+      <value value="&quot;default&quot;"/>
+      <value value="&quot;turn 90 deg&quot;"/>
+      <value value="&quot;sacrifice&quot;"/>
+      <value value="&quot;sprint&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="predator-strategy">
+      <value value="&quot;direct&quot;"/>
+      <value value="&quot;proportional&quot;"/>
     </enumeratedValueSet>
   </experiment>
 </experiments>

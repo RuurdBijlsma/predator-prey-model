@@ -1,0 +1,24 @@
+netlogo headings:
+left: 270
+up: 0
+right: 90
+down: 180
+
+questions
+why is N so high
+do I need to do flocking?
+do I need to do target locking?
+Did i do it right? (90 - heading, atan)
+Should I also model the predators decision in which prey to go for? I might be able to think of a different strategy. (Right now we chase based on distance, dragonflies do it based on speed across fov (higher speed means closer prey))
+
+gesprek punten
+
+control met recht bewegende prey testen
+[BELANGRIJK] concrete vraag bedenken
+
+Concrete Vraag:
+Is proportional navigation the optimal predation strategy when the prey tries to escape?
+
+catches per aanval kan ook naast catches per tick
+uitleggen hoe de patronen ontstaan
+test met meerdere of 1 prey

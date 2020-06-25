@@ -1,0 +1,61 @@
+Slide 1:
+Hello
+
+Slide 2: Introduction:
+When modelling a predator hunting a flock of birds or a school of fish there are multiple strategies to consider. What is usually modelled is that the predator will move toward the location of the selected prey, but when the predator then arrives at the position of the prey, the prey will have already moved away. At this point the predator can try catching up to the prey if it is faster, but maybe there is a better way. 
+Homing missiles don't point toward the position of their target, they will move to try intercept their target. This can also be used as a strategy for the predator, it can be applied through proportional navigation. 
+
+Slide 3: Research Question:
+The main focus of this project is to find out whether proportional navigation is the optimal predation strategy when the prey tries to escape. To find out we need to create a realistic model of the interaction between prey and predators, in our case we implemented fish behaviour, including flocking, different escape strategies and two predation strategies. The predator strategies that will be compared are proportional navigation and direct navigation.
+
+
+Slide 4: Proportional navigation:
+Like I said before, proportional navigation is used in homing missiles. The target has a position and velocity on the projected image that the sensor of the missile captures, based on these values the missile will adjust its heading to intercept the target.
+Predators will behave very similarly. They track the prey across their retina and try to intercept it based on it's own velocity, the prey's velocity and the prey's relative position.
+In the bottom image here we can see how a predator might see a prey, in this case the predator will have to adjust it's heading some degrees to the right to properly intercept.
+
+Slide 5: Direct Navigation:
+The implementation for direct navigation is much simpler, the predator will simply move toward the current position of the prey.
+
+Slide 6: Escape Strategies:
+Besides the predator's strategies, there is also an implementation for four escape strategies. The default strategy is to simply turn away from the direction of predator. Turn 90 degrees will have the prey turn 90 degrees compared to the direction of the predator. With sacrifice one prey will simply give itsself up to the predator in hopes that other fish have a better chance of escaping. With sprint the fish move away from the predator similarly to the move away strategy, but they will also increase speed while they are fleeing. 
+
+Slide 7: Video:
+This video shows proportional navigation used against the move away escape strategy. If you pay close attention you can see that the predator does manage to intercept some prey before they can escape succesfully.
+
+Slide 8: Intercept example:
+Here we have a part of the video where one of the interceptions happen, the predator moves toward the future location of the prey, (next, next), and then intercepts it
+
+Slide 9: Measuring performance:
+Before we get into any results, we need to figure out how we should measure the performance of the predator. There are two strategies here. We can measure catches per time unit or the chance of a catch for every attempt. I decided to mainly go with the chance of success performance measure, because it seems to reflect real life more closely. Every attempt to catch a prey will burn up precious energy in the predator, so we shouldn't ignore failed attempts.
+
+Slide 10: Optimal Proportinoality:
+The proportional navigation has a tunable parameter; namely the proportinoality constant. This can be used to tweak how strong the navigation change in heading can be. To optimize this parameter we tested it with multiple values and chose the value with the highest performance, which seems to be 1000.
+
+Slide 11: Testing our assumption:
+At the start of the presenattion we said we already know from missiles that proportional navigation is the optimal strategy against prey moving in a straight line. Our model also shows that this is true. When no escape strategy is implemented, and the prey just move in a straight line the proportional strategy is clearly better as seen in this boxplot.
+But why does proportional win here? In our model the predator and the prey have similar moving speed, which means that when direct navigation is used the predator will move to the target, and get behind it without being able to catch it. If the movement speed of the predator would be higher than the prey, the performance is be much closer between the two strategies.
+
+Slide 12: Results:
+Here we have the results for prey that are flocking and use escape strategies. The four bars on the left are direct navigation (point out), the four bars on the right (point out) are proportional navigation. As you can see the performance is quite low, this is because the speed of the predator is set equal to the speed of the prey, which means that the prey will just escape and the predator will rarely catch the prey. One thing that is quite interesting is that the proportional navigation is very successful against the turn 90 degrees escape strategy even when the speed of the predator is equal to the speed of the prey. (next slide)
+
+Slide 12: Results - faster predators:
+The predators are suddenly much more successfull when the are 20% faster than the prey. When the escape strategy is sprint the predators will still not catch the prey, because they just move away too quickly. As for the predator strategies, generally the direct navigation has better performance than proportional navigation. Proportional navigation really shines when turn 90 degrees is used by the prey. Direct navigation struggles to get a 20% success rate with this strategy, while proportional navigation has almost 50% success rate here.
+
+Slide 13: Resulting Patterns - Direct & turn 90 deg:  (dont play entire video, just show the point)
+To explain some of this behaviour we will look at how direct navigation performs against the turn 90 degrees strategy. This strategy really shows the main flaw with direct navigation, it goes to a position where the prey will not be when it arrives at that position. Usually its speed can compensate and catch the prey anyways, but when it turns away quickly the predator loses the prey.
+
+Slide 14: Resulting Patterns - Proportional & turn 90 deg: (dont play entire video, just show the point)
+Now we will look at the same video but with proportional navigation. This type of navigation is much better for this type of escaping prey, because of the fact that it tries to intercept the prey, and therefore has a much better line of attack when they suddenly turn 90 degrees.
+
+Slide 15: Resulting Patterns: Turn away escape strategy:
+In this short clip both predation patterns are shown against the turn away escape strategy, first we have direct navigation (play vid). We can see that the predator move behind the prey and slowly catches up to it.
+(wait for proportional nav, then pause it)
+Here we have proportional navigation against the turn away escape strategy. The predator here tries to intercept the prey, but they move away from the path directly away from the predator which causes the predator to lose the prey often.
+
+Slide 16: Conclusion:
+Our main aim for this project was to find out if proportional navigation is optimal when prey tries to escape. We found that the answer is: it depends on the escape strategy that the prey uses. When the prey tries to move away from predators, and the predator is even slighly faster than the prey then direct navigation is better than proportional navigation. When the prey tries to move 90 degrees away from the predator proportional navigation is better, and it's even quite viable when the predator can't go faster than the prey. So in practice to know which predation strategy would be best you first have to look at how the prey of choice try to escape when they are targeted by a predator.
+
+Slide 17: Possible Future Work:
+I think one of the biggest  improvements that could be made here is to try out multiple strategies for prey acquisition. Right now the model chooses a prey based on the closest fish within the field of view of the predator. For the proportional navigation strategy other strategies might be more useful, like the strategy dragonflies seem to use in real life. According to the paper by Olberg about prey pursuit in dragonflies, they wait until a prey moves across the field of view of the dragonfly with high enough speed, then it will decide to hunt that prey. This is because further away prey will move slower, and this navigation strategy seems to be better at catching prey that move orthogonal to the predator. 
+Besides this one could also see how different predator speeds affect the performance of the proportional navigation on the turn 90 degrees escape strategy. You could try to find out what the lower limit of speed is for predators using this strategy relative to the prey.
