@@ -9,7 +9,9 @@ extensions [vid]
 breed [fish onefish]
 breed [predators predator]
 breed [stampers stamper]
+breed [tails tail]
 
+tails-own [age]
 
 fish-own [
   flockmates         ;; agentset of nearby fish
@@ -44,6 +46,7 @@ globals [
 
 to setup
   clear-all
+  set-default-shape tails "line"
   create-fish population [
     set color yellow - 2 + random 7  ;; random shades look nice ?
     set size 1.5
@@ -56,7 +59,7 @@ to setup
     set shape "circle"
     setxy random-xcor random-ycor
     set color red
-    set size 1
+    set size 0
   ]
   set counter 0
   set lock-ons 0
@@ -65,6 +68,12 @@ to setup
 end
 
 to go
+
+  ask tails [
+    set age age + 1
+    if age >= tail-length [ die ]
+  ]
+
   ask fish [
     set delta-speed 0.1 * (random-normal speed (speed * 0.01 * speed-stddev))
     set delta-noise 0.1 * (random-normal 0 noise-stddev)
@@ -83,6 +92,7 @@ to go
       set nextx 0
       set nexty 0
     ]
+    ;ask predators [pen-down]
   ]
 
   ;let escape-task select-escape-task
@@ -118,6 +128,7 @@ to go
       fd delta-speed
     ]
     ask predators [
+      hatch-tails 1
       rt delta-noise
       fd 0.1 * predator-speed
       ask fish [set color yellow]
@@ -1092,6 +1103,21 @@ NIL
 NIL
 NIL
 1
+
+SLIDER
+852
+621
+1024
+654
+tail-length
+tail-length
+0
+200
+10.0
+1
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?

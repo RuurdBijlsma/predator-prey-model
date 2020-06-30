@@ -1,0 +1,8 @@
+conclusion:
+meer bullet points
+text moet laten zien dat het af hangt van de escape strategy
+ook laten zien waarom dat zo is in tekst
+
+future:
+specifiek maken dat de lower speed limit over de turn 90 deg en dat het gaat over 
+

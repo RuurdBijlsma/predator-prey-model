@@ -1,0 +1,77 @@
+tips:
+
+* Titel testing navigation strategies of the predator meer relaten aan project
+* titel meer centraal
+* tital jaar, supervisor
+
+intro:
+benoem dat dragonflies ook die strategy gebruiken
+explain dat proportional werkt doordat de prey op een hoek blijft in de fov van de predator, leg uit dat dat voorspellend is
+
+research question:
+Subvraag toevoegen, en hoe hangt dit af van de escape strategy van de prooi
+
+prop nav:
+plaatjes rechts -> bad
+houd hoek constant van prey -> predator
+2 videos van 1 predator 1 prey toevoegen rechts met direct navigation en met proportional
+pandown om de track van de predator te laten zien
+
+direct navigation:
+toon deze voor prop nav want deze is simpeler, want iedereen kent het al (direct goed)
+
+escape strategies:
+verander move away naar default (houd consistent)
+voeg control strategy to (geen escape)
+
+model video:
+haal stip weg
+haal video weg
+
+
+prop nav example
+can be removed
+
+measuring performance:
+duidelijker zijn in wat chance per success betekent -> catches per lock on
+catches per time unit achter laten
+experiment repetities etc
+
+optional proportionality:
+assen en labels groter maken
+figuur centraalder
+catches per attack / catches per lockon / successrate consistent zijn
+leg uit dat je het kan parameteriseren
+
+testing assumptions:
+verander van assumptions naar hypothesis
+assen groter -> labels groter
+
+results equal speed:
+box plot met legende de pred strats direct naast elkaar, kleur de boxes
+font size 14 of 16
+eerste punt weg -> both predation strategies
+prey speed  = predator speed
+verander titel naar equal speed predator-prey
+figuur centraalder, text weg
+
+results faster predators:
+huge graph, titel naar boven
+
+video:
+beter uitleggen lmao
+video beter editen ofzo want het lagt
+track van predator tonen
+
+video 2:
+bij turn away strategy de prop nav wordt eruit gedraait
+probeer videos concreter te maken
+
+conclusion:
+meer bullet points
+text moet laten zien dat het af hangt van de escape strategy
+ook laten zien waarom dat zo is in tekst
+
+future:
+specifiek maken dat de lower speed limit over de turn 90 deg en dat het gaat over 
+
